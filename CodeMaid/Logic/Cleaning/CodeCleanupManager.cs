@@ -1,16 +1,16 @@
-using EnvDTE;
-using SteveCadwallader.CodeMaid.Helpers;
-using SteveCadwallader.CodeMaid.Logic.Formatting;
-using SteveCadwallader.CodeMaid.Logic.Reorganizing;
-using SteveCadwallader.CodeMaid.Model;
-using SteveCadwallader.CodeMaid.Model.CodeItems;
-using SteveCadwallader.CodeMaid.Properties;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace SteveCadwallader.CodeMaid.Logic.Cleaning
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using EnvDTE;
+    using SteveCadwallader.CodeMaid.Helpers;
+    using SteveCadwallader.CodeMaid.Logic.Formatting;
+    using SteveCadwallader.CodeMaid.Logic.Reorganizing;
+    using SteveCadwallader.CodeMaid.Model;
+    using SteveCadwallader.CodeMaid.Model.CodeItems;
+    using SteveCadwallader.CodeMaid.Properties;
+
     /// <summary>
     /// A manager class for cleaning up code.
     /// </summary>
@@ -229,19 +229,31 @@ namespace SteveCadwallader.CodeMaid.Logic.Cleaning
         {
             var textDocument = document.GetTextDocument();
 
-            // Perform any actions that can modify the file code model first.
-            RunExternalFormatting(textDocument);
             if (!document.IsExternal())
             {
                 _usingStatementCleanupLogic.RemoveAndSortUsingStatements(textDocument);
             }
-
+            
             // Interpret the document into a collection of elements.
             var codeItems = _codeModelManager.RetrieveAllCodeItems(document);
 
-            var regions = codeItems.OfType<CodeItemRegion>().ToList();
             var usingStatements = codeItems.OfType<CodeItemUsingStatement>().ToList();
             var namespaces = codeItems.OfType<CodeItemNamespace>().ToList();
+
+            _usingStatementCleanupLogic.MoveUsingStatementsWithinNamespace(usingStatements, namespaces);
+
+            //Perform any actions that can modify the file code model first.
+            RunExternalFormatting(textDocument);
+
+            // Perform file header cleanup.
+            _fileHeaderLogic.UpdateFileHeader(textDocument);
+
+            // Interpret the document into a collection of elements.
+            codeItems = _codeModelManager.RetrieveAllCodeItems(document);
+
+            var regions = codeItems.OfType<CodeItemRegion>().ToList();
+            usingStatements = codeItems.OfType<CodeItemUsingStatement>().ToList();
+            namespaces = codeItems.OfType<CodeItemNamespace>().ToList();
             var classes = codeItems.OfType<CodeItemClass>().ToList();
             var delegates = codeItems.OfType<CodeItemDelegate>().ToList();
             var enumerations = codeItems.OfType<CodeItemEnum>().ToList();
@@ -256,9 +268,6 @@ namespace SteveCadwallader.CodeMaid.Logic.Cleaning
             var usingStatementBlocks = CodeModelHelper.GetCodeItemBlocks(usingStatements).ToList();
             var usingStatementsThatStartBlocks = (from IEnumerable<CodeItemUsingStatement> block in usingStatementBlocks select block.First()).ToList();
             var usingStatementsThatEndBlocks = (from IEnumerable<CodeItemUsingStatement> block in usingStatementBlocks select block.Last()).ToList();
-
-            // Perform file header cleanup.
-            _fileHeaderLogic.UpdateFileHeader(textDocument);
 
             // Perform removal cleanup.
             _removeRegionLogic.RemoveRegionsPerSettings(regions);
